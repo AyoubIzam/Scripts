@@ -1,0 +1,162 @@
+<script>
+    $(document).ready(function () {
+        $('body').append('<style>.item-tax2, .tax2 {display: none !important;}</style>')
+        var loader = {
+            initialize: function () {
+                var html = '<div class="loading-overlay"></div>' + '<div class="loading-overlay-image-container">' + '<div class="loading-overlay-title">Applying</div>' + '<img class="loading-overlay-image" src="https://daftra-trading.daftara.com/files/6935a847/logos/6219ef86830f0_blobid1645866884178.gif" alt="" title="discord-loading-dots-discord-loading.gif" alt="">' + '</div>';
+
+                $('#main-content').append(html)
+            },
+
+            showLoader: function () {
+                $('.loading-overlay').show();
+                $('.loading-overlay-image-container').show();
+
+            },
+
+            hideLoader: function () {
+                $('.loading-overlay').hide();
+                $('.loading-overlay-image-container').hide();
+
+            }
+        }
+
+        console.log('الغالة')
+
+        let itemMiniPrice = function getPrice(itemId) {
+            return new Promise(function (resolved) {
+                $.ajax({
+                    url: 'https://nseraljnobest.daftra.com/api2/products/' + itemId,
+                    type: 'get',
+                    success: function (resp) {
+
+                        price = resp.data['Product']['minimum_price']
+                        resolved(price)
+
+
+                    }
+                })
+            })
+        }
+
+        let lastSellPrice = function getLastMinPrice(itemId, clientId) {
+
+            return new Promise(function (resolved) {
+
+                if (clientId != undefined) {
+                    $.ajax({
+                        url: 'https://nseraljnobest.daftra.com/v2/api/entity/invoice_item/list/1?sort[invoice.date]=desc&filter[product.id]=' + itemId + '&filter[invoice.client_id]=' + clientId,
+                        type: 'get',
+                        success: function (resp) {
+
+                            if (Object.keys(resp.data).length != 0) {
+                                resolved(resp.data['0']["unit_price"])
+
+                            } else {
+                                resolved(0)
+                            }
+
+                        }
+                    })
+                } else {
+                    resolved(0);
+                }
+            })
+
+
+        }
+
+        let minPrice = function getMinPrice(itemId) {
+            return new Promise(function (resolved) {
+                $.ajax({
+                    url: 'https://nseraljnobest.daftra.com/v2/api/entity/invoice_item/list/1?sort[invoice.date]=desc&filter[invoice.type]=0&filter[product.id]=' + itemId,
+                    type: 'get',
+                    success: function (resp) {
+                        if (Object.keys(resp.data).length != 0) {
+
+                            let sellPrice = []
+                            for (let i = 0; i < Object.keys(resp.data).length; i++) {
+                                sellPrice.push(resp.data[i]['unit_price'])
+                            }
+
+                            resolved(Math.min(...sellPrice))
+                        } else {
+                            resolved(0)
+                        }
+                    }
+                })
+            })
+        }
+
+
+
+
+
+
+        $(document).on('change', "#InvoiceLayout", function () {
+
+            layout_id = $('#InvoiceLayout').val()
+            if (layout_id == "3") {
+                let clientId;
+                loader.initialize();
+                function createCol(colTitle, idTh, classTd, colInput, idTd) {
+
+
+
+                    $("#label_unit_price").before($("#label_description").clone().wrap("<p>").parent().html().replace(
+                        "label_description", idTh).replace($("#label_description").text(), colTitle));
+                    $(".unit-price").before($("td.col-2").clone().wrap("<p>").parent().html().replace("col-2", classTd).replace(
+                        "item-description", colInput));
+                    $("." + colInput).attr({ placeholder: colTitle, id: idTd, name: '', readonly: 'readonly', disabled: true })
+
+
+                }
+
+                function bindAddButton(classTd, idTd, colInput) {
+                    var tr = $('#listing_table').find('tr.itemRow:last-child');
+                    var td = tr.find("td.col-2");
+                    tr.find(".unit-price").before(td.clone().wrap('<p>').parent().html().replace("col-2", classTd).replace(
+                        "item-description", colInput));
+                    $("." + colInput).attr({ placeholder: " ", id: idTd, name: '', readonly: 'readonly', disabled: true })
+                }
+
+                createCol("أقل سعر بيع", "minPrice", "min-price", "min-price-input", 'min_price')
+                createCol("آخر سعر بيع", "lastPrice", "last-price", "last-price-input", 'last_price')
+
+                $('#AddItem').bind('click', function (e) {
+                    bindAddButton('min-price', 'min_price', 'min-price-input')
+                    bindAddButton('last-price', 'last_price', 'last-price-input')
+                })
+
+                $('#InvoiceClientId').on('change', function () {
+                    clientId = $('#InvoiceClientId').val();
+
+                })
+
+                $(document).on('change', '.item-id', function () {
+                    loader.showLoader()
+                    let selctedClientId = clientId
+                    let newThis = $(this)
+                    let itemId = newThis.closest('tr').find('.item-id').val()
+                    console.log(selctedClientId)
+                    console.log(itemId)
+
+
+                 setTimeout(function(){
+                    Promise.all([lastSellPrice(itemId, selctedClientId),minPrice(itemId)]).then(function(itemPrices){
+                        console.log(itemPrices)
+                        newThis.closest('tr').find('.min-price-input').val(itemPrices[1])
+                        newThis.closest('tr').find('.last-price-input').val(itemPrices[0])
+                    })
+                 }, 300)
+
+                    loader.hideLoader()
+
+
+                })
+
+            }
+
+        })
+    })
+</script>
